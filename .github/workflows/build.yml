@@ -1,0 +1,57 @@
+name: Build firmware
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  XIAOZHI_REF: c435f99a88066029ec2dbd2d758c8cc9d051565b
+
+jobs:
+  build:
+    name: Build ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v6.1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: bread-compact-wifi
+            variant: bread-compact-wifi-128x64
+          - board: seeed/xiao-esp32s3-pocket
+            variant: xiao-esp32s3-pocket
+          - board: seeed/xiao-esp32s3-pocket
+            variant: xiao-esp32s3-pocket-sh1106
+    steps:
+      - name: Lay cau hinh board
+        uses: actions/checkout@v4
+        with:
+          path: pocket
+
+      - name: Lay ma nguon xiaozhi-esp32
+        uses: actions/checkout@v4
+        with:
+          repository: 78/xiaozhi-esp32
+          ref: ${{ env.XIAOZHI_REF }}
+          path: xiaozhi
+
+      - name: Them board XIAO Pocket
+        run: python3 pocket/scripts/apply_board.py xiaozhi
+
+      - name: Build firmware
+        shell: bash
+        working-directory: xiaozhi
+        run: |
+          source "$IDF_PATH/export.sh"
+          python scripts/build.py "${{ matrix.board }}" --name "${{ matrix.variant }}" --language vi-VN --wake-word wn9_alexa
+
+      - name: Tai file .bin len
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.variant }}
+          path: xiaozhi/build/merged-binary.bin
+          if-no-files-found: error
